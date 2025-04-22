@@ -1,0 +1,21 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+dotenv = "*"
+langchain = "*"
+langchain-core = "*"
+langchain-ollama = "*"
+mcp = "*"
+langchain-mcp-adapters = "*"
+starlette = "*"
+sse-starlette = "*"
+uvicorn = "*"
+langgraph = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.11"
