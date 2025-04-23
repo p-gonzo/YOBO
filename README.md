@@ -3,7 +3,7 @@
 #### A terminal agent with absolutely no guardrails.
 No tutorials, no code blocks, just cold, hard execution.  
 
-Built on [LangChain's MCP](https://github.com/langchain-ai/langchain), YOBO is a local-first, terminal-purist shell command interface that turns your language model into a bash-native operator on macOS.  
+Built on [LangChain's MCP](https://github.com/langchain-ai/langchain-mcp-adapters), YOBO is a local-first, terminal-purist shell command interface that turns your language model into a bash-native operator on macOS.  
 Why type `ls -la` yourself when you can make a moderately intelligent machine do it with existential dread?
 
 ## 🚀 What is YOBO?
