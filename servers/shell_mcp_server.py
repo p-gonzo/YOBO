@@ -16,12 +16,13 @@ mcp = FastMCP('ShellCommandExecutor')
 @mcp.tool(name="execute_shell_command")
 def execute_shell_command(command: str) -> str:
     """
-    Executes a shell command directly in the user's local environment and returns the output.
-    
-    Use this tool whenever the user asks for information that could be retrieved by running a terminal or shell command,
-    such as 'what's in my current directory', 'list all files', 'check disk usage', etc.
+    Executes a real shell command in the user's Mac OS environment and returns the actual output (stdout and stderr).
 
-    Do NOT generate code. Call this tool instead.
+    Use this tool to perform any task that requires terminal access.
+
+    This is the ONLY way to run shell commands. Do not describe or suggest commands — use this tool to execute them directly.
+
+    Think and reason in bash. Use the tool as many times as needed to fully complete the user’s request.
     """
     logger.info(f'Executing shell command: {command}')
     try:
@@ -40,19 +41,14 @@ def execute_shell_command(command: str) -> str:
         logger.info(f'Command output: {stdout}')
         if stderr:
             logger.warning(f'Command stderr: {stderr}')
+            return f"🔻 STDERR:\n{stderr}"
 
-        return stdout or "[✅ Command completed successfully but produced no output.]"
+        return stdout or "Command executed successfully"
 
 
     except subprocess.CalledProcessError as e:
         stdout = e.stdout.strip() if e.stdout else ""
         stderr = e.stderr.strip() if e.stderr else ""
-
-        logger.error(f"Shell command failed. Code: {e.returncode}")
-        if stdout:
-            logger.error(f"STDOUT: {stdout}")
-        if stderr:
-            logger.error(f"STDERR: {stderr}")
 
         error_msg = f"⚠️ The shell command failed (exit code {e.returncode})."
 

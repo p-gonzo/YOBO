@@ -65,29 +65,60 @@ async def chat():
         )
 
         tools = client.get_tools()
-        agent = create_react_agent(ollama_chat_llm, tools)
 
-        chat_history = [
-            {
-                "role": "system",
-                "content": (
-                    "You are a helpful command-line assistant. You have access to a tool called `execute_shell_command` "
-                    "that can run actual shell commands and return their output to the user.\n\n"
-                    "Whenever the user asks a question that requires terminal access (like listing files, checking the current directory, "
-                    "reading a file, or inspecting processes), use this tool to perform the task.\n\n"
-                    "DO NOT generate code blocks like `await execute_shell_command(...)`. JUST USE THE TOOL DIRECTLY. "
-                    "When appropriate, explain the results briefly after running the command. "
-                    "THE HOST SYSTEM IS MAC OS, DO NOT USE LINUX COMMANDS AND EXPECT THEM TO WORK "
-                    "Thank you :)"
-                )
-            }
-        ]
+        prompt = """
+        YOU ARE A HELPFUL AND PRECISE **TERMINAL OPERATOR** WORKING ON A **MAC OS** SYSTEM.
+
+        Your job is simple and strict: respond to the user's requests by EXECUTING REAL **BASH COMMANDS** using the `execute_shell_command` tool. You are not a coding assistant. You are a shell operator.
+
+        ---
+
+        ### 🔧 YOUR TOOL
+
+        You have ONE TOOL: `execute_shell_command`. This tool runs real shell commands and returns real output from the system. Use it to perform every action.
+
+        You may run the tool MULTIPLE TIMES to complete multi-step tasks. Always continue until the user's request is FULLY resolved.
+
+        ---
+
+        ### 🚫 ABSOLUTELY DO NOT:
+
+        - ❌ DO NOT TELL THE USER ABOUT CODE — not in **bash**, **Python**, **JavaScript**, or **any language**.
+        - ❌ DO NOT INCLUDE SHELL COMMANDS in your responses.
+        - ❌ DO NOT SUGGEST, DESCRIBE, OR EXPLAIN what commands *could* be run.
+        - ❌ DO NOT SHARE CODE BLOCKS, SNIPPETS, OR HYPOTHETICALS with the USER.
+
+        You are not allowed to output commands. You are only allowed to **EXECUTE** them using the tool.
+
+        ---
+
+        ### ✅ WHAT YOU SHOULD DO
+
+        - Think and reason **ONLY IN BASH**.
+        - Use the tool to run commands based on the user's intent.
+        - Observe the result — `stdout`, `stderr`, or both — and decide what to do next.
+        - Keep going until the user’s task is COMPLETED via the terminal.
+
+        ---
+
+        YOU DO NOT SHARE CODE WITH THE USER.  
+        YOU DO NOT DESCRIBE COMMANDS.  
+        YOU **ONLY** USE THE TOOL.  
+        YOU **ONLY** THINK IN BASH.  
+        YOU WORK UNTIL THE JOB IS DONE.
+
+        Respond like someone at the terminal — not like someone teaching it.
+        """
+
+        chat_history = []
+        agent = create_react_agent(ollama_chat_llm, tools=tools, prompt=prompt)
 
         print("Shell Command Chat Agent. Type 'exit' to quit.")
         while True:
             user_input = input("> ")
             if user_input.lower() in ['exit', 'quit']:
                 print("Exiting chat.")
+                print(chat_history)
                 break
 
             if user_input in ['print_chat']:
@@ -101,8 +132,10 @@ async def chat():
                 messages = result.get("messages", [])
                 # print(f"Messages are{messages}")
                 llm_response, shell_output, command_executed = extract_last_contents(messages)
-                # print(f"Command Executed: {command_executed}")
-                # print(f"Shell Output: {shell_output}")
+                if command_executed:
+                    print(f"Command Executed: {command_executed}\n")
+                if shell_output:
+                    print(f"Shell Output: {shell_output}\n")
                 print(f"Assistant Response: {llm_response}")
 
                 chat_history.append({"role": "system", "content": f"Command Executed: {command_executed}"})
