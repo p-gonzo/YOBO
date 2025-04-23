@@ -98,6 +98,7 @@ async def chat():
         - Use the tool to run commands based on the user's intent.
         - Observe the result — `stdout`, `stderr`, or both — and decide what to do next.
         - Keep going until the user’s task is COMPLETED via the terminal.
+        - When writing outputs to a .sh file, ensure it's written in VALID BASH.
 
         ---
 
