@@ -6,10 +6,8 @@ from dotenv import load_dotenv, find_dotenv
 from langchain_ollama import ChatOllama
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.prebuilt import create_react_agent
-
-# Setup logging
-logging.basicConfig(format='%(levelname)s %(asctime)s - %(message)s', level=logging.INFO)
-logger = logging.getLogger('multi_mcp_client')
+from langgraph.checkpoint.memory import MemorySaver
+from langchain_core.messages import HumanMessage
 
 # Load .env variables
 load_dotenv(find_dotenv())
@@ -21,39 +19,20 @@ ollama_base_url = os.getenv('OLLAMA_BASE_URL')
 py_project_dir = os.getenv('PY_PROJECT_DIR')
 
 # Set up the chat model
-ollama_chat_llm = ChatOllama(
+model = ChatOllama(
     base_url=ollama_base_url,
     model=ollama_model,
     temperature=llm_temperature
 )
 
-def extract_last_contents(messages):
-    last_llm_response = None
-    last_shell_output = None
-    last_command_executed = None
-
-    for message in reversed(messages):
-        if last_llm_response is None and type(message).__name__ == "AIMessage":
-            if hasattr(message, 'content') and message.content:
-                last_llm_response = message.content
-
-        if last_shell_output is None and type(message).__name__ == "ToolMessage":
-            if hasattr(message, 'content') and message.content:
-                last_shell_output = message.content
-
-        if last_command_executed is None and type(message).__name__ == "AIMessage":
-            tool_calls = getattr(message, 'tool_calls', None)
-            if tool_calls:
-                # tool_calls should be a list of dict-like objects
-                last_tool = tool_calls[-1]
-                last_command_executed = last_tool['args'].get('command')
-
-        # Break early if all values have been found
-        if all([last_llm_response, last_shell_output, last_command_executed]):
-            break
-    return last_llm_response, last_shell_output, last_command_executed
-    
-    
+async def print_stream(stream):
+    async for s in stream:
+        message = s["messages"][-1]
+        if not isinstance(message, HumanMessage):
+            if isinstance(message, tuple):
+                print(message)
+            else:
+                message.pretty_print()
 
 async def chat():
     async with MultiServerMCPClient() as client:
@@ -66,87 +45,22 @@ async def chat():
 
         tools = client.get_tools()
 
-        prompt = """
-        YOU ARE A HELPFUL AND PRECISE **TERMINAL OPERATOR** WORKING ON A **MAC OS** SYSTEM.
+        memory = MemorySaver()
 
-        Your job is simple and strict: respond to the user's requests by EXECUTING REAL **BASH COMMANDS** using the `execute_shell_command` tool. You are not a coding assistant. You are a shell operator.
+        with open("system_prompt.txt", "r") as file:
+            prompt = file.read()
 
-        ---
-
-        ### 🔧 YOUR TOOL
-
-        You have ONE TOOL: `execute_shell_command`. This tool runs real shell commands and returns real output from the system. Use it to perform every action.
-
-        You may run the tool MULTIPLE TIMES to complete multi-step tasks. Always continue until the user's request is FULLY resolved.
-
-        ---
-
-        ### 🚫 ABSOLUTELY DO NOT:
-
-        - ❌ DO NOT TELL THE USER ABOUT CODE — not in **bash**, **Python**, **JavaScript**, or **any language**.
-        - ❌ DO NOT INCLUDE SHELL COMMANDS in your responses.
-        - ❌ DO NOT SUGGEST, DESCRIBE, OR EXPLAIN what commands *could* be run.
-        - ❌ DO NOT SHARE CODE BLOCKS, SNIPPETS, OR HYPOTHETICALS with the USER.
-
-        You are not allowed to output commands. You are only allowed to **EXECUTE** them using the tool.
-
-        ---
-
-        ### ✅ WHAT YOU SHOULD DO
-
-        - Think and reason **ONLY IN BASH**.
-        - Use the tool to run commands based on the user's intent.
-        - Observe the result — `stdout`, `stderr`, or both — and decide what to do next.
-        - Keep going until the user’s task is COMPLETED via the terminal.
-        - When writing outputs to a .sh file, ensure it's written in VALID BASH.
-
-        ---
-
-        YOU DO NOT SHARE CODE WITH THE USER.  
-        YOU DO NOT DESCRIBE COMMANDS.  
-        YOU **ONLY** USE THE TOOL.  
-        YOU **ONLY** THINK IN BASH.  
-        YOU WORK UNTIL THE JOB IS DONE.
-
-        Respond like someone at the terminal — not like someone teaching it.
-        """
-
-        chat_history = []
-        agent = create_react_agent(ollama_chat_llm, tools=tools, prompt=prompt)
-
+        graph = create_react_agent(model, tools=tools, checkpointer=memory, prompt=prompt)
+        config = {"configurable": {"thread_id": "1"}}
         print("Shell Command Chat Agent. Type 'exit' to quit.")
         while True:
+            print("================================ Human Message =================================\n")
             user_input = input("> ")
             if user_input.lower() in ['exit', 'quit']:
-                print("Exiting chat.")
-                print(chat_history)
                 break
 
-            if user_input in ['print_chat']:
-                print(chat_history)
-                break
-
-            chat_history.append({"role": "user", "content": user_input})
-
-            try:
-                result = await agent.ainvoke({"messages": chat_history})
-                messages = result.get("messages", [])
-                # print(f"Messages are{messages}")
-                llm_response, shell_output, command_executed = extract_last_contents(messages)
-                if command_executed:
-                    print(f"Command Executed: {command_executed}\n")
-                if shell_output:
-                    print(f"Shell Output: {shell_output}\n")
-                print(f"Assistant Response: {llm_response}")
-
-                chat_history.append({"role": "system", "content": f"Command Executed: {command_executed}"})
-                chat_history.append({"role": "system", "content": f"Shell Output: {shell_output}"})
-                chat_history.append({"role": "assistant", "content": llm_response})
-
-
-            except Exception as e:
-                logger.error(f"Error during chat: {e}")
-                print("An error occurred. Check logs.")
+            inputs = {"messages": [("user", user_input)]}
+            await print_stream(graph.astream(inputs, config=config, stream_mode="values"))
 
 if __name__ == '__main__':
     asyncio.run(chat())
