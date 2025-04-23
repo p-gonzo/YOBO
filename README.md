@@ -13,6 +13,12 @@ Why type `ls -la` yourself when you can make a moderately intelligent machine do
 - Deployed locally via the **Model Context Protocol (MCP)**
 - Obsessed with following orders, not giving lectures
 
+## 🎥 Demo
+
+Curious what it’s like to have an LLM do your terminal dirty work?
+
+👉 [Watch the demo](./yobo_demo.mp4) — *yobo_demo.mp4* lives in the root directory.
+
 
 ## 🧠 Architecture
 ```
