@@ -41,7 +41,7 @@ Under the hood:
 
 ## 🛠️ Setup
 
-1. **Install dependencies**
+**Install dependencies**
 
 ```bash
 pipenv install
@@ -49,7 +49,7 @@ pipenv install
 Start Ollama locally
 * Make sure OLLAMA_MODEL in .env is downloaded and running.
 ```bash
-pipenv run python shell_mcp_client.py
+pipenv run python yobo.py
 ```
 
 ## 🧱 Philosophy
